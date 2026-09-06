@@ -22,7 +22,19 @@
 >   and `owasp:llm:04`/`08` raise a clear "needs a RAG target" error instead of
 >   silently running nothing. Tests in `tests/integration/test_app_aware.py`.
 >
-> Tier 4 (hygiene) is the only tier left open.
+> - **Milestone D (Tier 3.3–3.6 + Tier 4)**: the remaining breadth and hygiene.
+>   ASCII/Unicode-tag smuggling (an invisible-payload attack, deterministic and
+>   static), a real `translate` attack that moves the payload out of English via
+>   the attacker model (cached, with a static fallback), and a GOAT-style
+>   adaptive attacker that switches tactic based on the target's last reply. The
+>   `[classifiers]` extra is now wired as an optional `hf_classifier` scorer that
+>   degrades to a non-evaluation when transformers is absent. A scheduled
+>   `calibrate.yml` workflow refreshes the z-score bag, and CONTRIBUTING.md
+>   documents setup and the editable-install quirk. Tests in
+>   `tests/unit/test_breadth.py`.
+>
+> All four milestones are complete. The plan below is the original review; the
+> status boxes above record what shipped.
 
 
 

@@ -171,3 +171,37 @@ class ReverseConverter(Converter):
 class UpperConverter(Converter):
     def transform(self, text: str) -> str:
         return text.upper()
+
+
+# Unicode Tags block (U+E0000..U+E007F) mirrors ASCII but renders invisibly in
+# most clients. Text encoded here is unreadable to a human reviewer yet many
+# models still decode and act on it: the "ASCII smuggling" / invisible-injection
+# class. TAG_BASE + ord(ch) maps a printable ASCII char to its tag twin.
+_TAG_BASE = 0xE0000
+
+
+@register("converter", "ascii_smuggling")
+class AsciiSmugglingConverter(Converter):
+    """Encode the payload in invisible Unicode tag characters.
+
+    The transformed text looks empty (or like the optional visible cover) to a
+    human, so this tests whether the target decodes and obeys content its own
+    operators cannot see.
+    """
+
+    reversible = True
+    DEFAULT_PARAMS = {"cover": ""}
+
+    def transform(self, text: str) -> str:
+        smuggled = "".join(
+            chr(_TAG_BASE + ord(ch)) if 0x20 <= ord(ch) <= 0x7E else ch for ch in text
+        )
+        return f"{self.params['cover']}{smuggled}" if self.params.get("cover") else smuggled
+
+    def untransform(self, text: str) -> str:
+        # Decode any tag-encoded run the model echoed back, so scoring sees it.
+        decoded = "".join(
+            chr(ord(ch) - _TAG_BASE) if _TAG_BASE <= ord(ch) <= _TAG_BASE + 0x7F else ch
+            for ch in text
+        )
+        return decoded if decoded != text else text
