@@ -1,0 +1,31 @@
+# Example: gate merges on new LLM vulnerabilities.
+# Copy into a downstream repo that has an lvscan.yaml and a committed lvscan.suite.yaml.
+name: llm-vuln-scan
+on:
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install llm-vuln-scan
+      - name: Run static-tier scan
+        env:
+          TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}
+        run: |
+          lvscan run \
+            --suite lvscan.suite.yaml \
+            --fail-on-severity high \
+            --sarif lvscan.sarif \
+            --junit lvscan-junit.xml
+      - name: Upload SARIF to the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: lvscan.sarif

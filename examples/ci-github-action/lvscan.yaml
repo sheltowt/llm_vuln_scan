@@ -1,0 +1,35 @@
+# CI-oriented config: point at your deployed HTTP endpoint, commit a suite, and
+# gate on regressions rather than absolute failures so a known baseline of
+# accepted findings does not block every PR.
+target:
+  type: http
+  url: ${env.TARGET_URL}
+  method: POST
+  headers: { Authorization: "Bearer ${env.TARGET_TOKEN}" }
+  body: { message: "{{prompt}}", session_id: "{{session_id}}" }
+  response: "$.reply"
+  session_parser: "$.session_id"
+  stateful: true
+  capabilities: { multi_turn: true }
+  rate_limit: { rps: 5, burst: 10 }
+
+app:
+  purpose: >
+    Describe your application here: who uses it, what it may do, and what it must
+    never do. This text drives both test generation and grading, so be specific.
+
+vulnerabilities:
+  - preset: owasp:llm
+
+attacks:
+  static: [direct, injection_framing, base64, jailbreak_template, indirect_injection]
+
+scoring:
+  judge: { model: ${env.LVSCAN_JUDGE_MODEL:-}, temperature: 0 }
+  cascade: true
+  min_confidence: 0.6
+
+run: { tier: static, concurrency: 8 }
+gates:
+  fail_on_new: true
+  baseline: "tag:git.branch=main"

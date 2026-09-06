@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-vuln-scan"
+version = "0.1.0"
+description = "An LLM vulnerability scanner: turnkey static tier for CI, composable dynamic tier for deep red teaming."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "llm_vuln_scan contributors" }]
+keywords = ["llm", "security", "red-team", "owasp", "vulnerability-scanner"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+dependencies = [
+  "pydantic>=2.6",
+  "pyyaml>=6.0",
+  "httpx>=0.27",
+  "typer>=0.12",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+classifiers = ["transformers>=4.40", "torch>=2.2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6", "respx>=0.21"]
+all = ["llm-vuln-scan[classifiers,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/wshelton/llm_vuln_scan"
+Documentation = "https://github.com/wshelton/llm_vuln_scan/tree/main/docs"
+
+[project.scripts]
+lvscan = "llm_vuln_scan.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_vuln_scan"]
+
+[tool.hatch.build]
+artifacts = ["src/llm_vuln_scan/data/**/*"]
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B008", "UP042"]
