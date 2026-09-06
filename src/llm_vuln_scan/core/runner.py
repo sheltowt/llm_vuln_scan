@@ -140,6 +140,12 @@ class Runner:
         from ..core.models import new_id
 
         self.run_id = self.store.run_id if self.store else new_id("run_")
+        if self._plan is None:
+            # Not replaying a frozen suite: run app-aware generation (if the
+            # config uses it) before building the plan, so generated seeds exist.
+            from .generate import prepare
+
+            await prepare(self.ctx, self.config)
         plan = self._plan if self._plan is not None else build_plan(self.config, self.ctx)
         total = len(plan.items) * plan.generations
         result = RunResult(run_id=self.run_id, store_dir=str(self.store.dir) if self.store else "")

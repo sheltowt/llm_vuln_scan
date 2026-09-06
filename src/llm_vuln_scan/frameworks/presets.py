@@ -51,6 +51,27 @@ def _vulns_with_tag(prefix: str) -> list[str]:
     return sorted(out)
 
 
+# Sub-presets that have no shipped coverage yet because they need a target the
+# scanner does not model on its own. Asking for them fails loudly with guidance,
+# rather than silently running zero probes.
+_NEEDS_INFRA = {
+    "owasp:llm:04": "data & model poisoning needs a RAG/retrieval or training target; not covered by a plain chat target",
+    "owasp:llm:08": "vector & embedding weaknesses need a RAG target with an embedding store; not covered here yet",
+}
+
+
+def _require_nonempty(preset: str, names: list[str]) -> list[str]:
+    if names:
+        return names
+    hint = _NEEDS_INFRA.get(preset)
+    if hint:
+        raise ValueError(f"preset {preset!r} has no coverage: {hint}")
+    raise ValueError(
+        f"preset {preset!r} expands to no vulnerabilities. It may be unimplemented; "
+        "run `lvscan list vulnerability` to see what is available."
+    )
+
+
 def expand(preset: str) -> list[str]:
     """Expand one preset name to a sorted list of vulnerability names."""
 
@@ -64,13 +85,13 @@ def expand(preset: str) -> list[str]:
             n for n, c in vulns.items() if getattr(c, "tier", 1) == 1
         )
     if preset.startswith("owasp:llm:"):
-        return _vulns_with_tag(preset)
+        return _require_nonempty(preset, _vulns_with_tag(preset))
     if preset == "owasp:llm":
         return _vulns_with_tag("owasp:llm")
     if preset in ("owasp:agentic", "owasp:agent"):
         return _vulns_with_tag("owasp:agentic")
     if preset.startswith("owasp:agentic:"):
-        return _vulns_with_tag(preset)
+        return _require_nonempty(preset, _vulns_with_tag(preset))
     if preset.startswith("mitre:atlas"):
         return _vulns_with_tag("mitre:atlas")
     if preset.startswith("nist"):

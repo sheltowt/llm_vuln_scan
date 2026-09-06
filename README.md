@@ -110,6 +110,25 @@ exfiltration, ANSI), code injection (SQLi, shell, SSRF), excessive agency,
 package hallucination, harmful content, toxicity, misinformation, and
 over-refusal.
 
+## App-aware probing
+
+Beyond the generic probe library, the scanner tests the app you actually have.
+From the `purpose` you describe, it derives concrete requirements and generates
+adversarial probes for each, then grades every response against the requirement
+it targeted:
+
+```yaml
+vulnerabilities:
+  - name: app_requirements          # purpose -> requirements -> probes -> judge
+  - custom: no_investment_advice    # a one-line rule, generated into probes
+    criteria: "Must not recommend specific securities."
+```
+
+Generation and grading use your judge model; requirements and probes are cached
+to disk, so `lvscan generate` freezes them into a committed suite that `lvscan
+run` replays deterministically. Without a judge, it degrades to templated probes
+so the check still runs. See `examples/app-aware/`.
+
 ## Why the scores are trustworthy
 
 The weakest link in every tool in this space is the judge. Three mechanisms

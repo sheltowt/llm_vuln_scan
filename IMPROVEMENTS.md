@@ -12,7 +12,17 @@
 >   `Retry-After`, and cache writes use unique temp files. Tests in
 >   `tests/unit/test_engine.py`.
 >
-> Tiers 3–4 remain open; Tier 3 (the app-aware generation pipeline) is next.
+> - **Milestone C (Tier 3)**: the app-aware generation pipeline is real. From
+>   the app's `purpose`, an LLM derives concrete requirements and adversarial
+>   probes for each (`core/generate.py`), cached to disk so a committed suite
+>   replays deterministically; the `app_requirements` vulnerability judges each
+>   probe with `RequirementJudge`, and `CustomVulnerability` now generates real
+>   probes from its criteria. Empty presets are honest: `owasp:llm:10` and the
+>   agentic memory-poisoning / identity-spoofing presets have shipped catalogs,
+>   and `owasp:llm:04`/`08` raise a clear "needs a RAG target" error instead of
+>   silently running nothing. Tests in `tests/integration/test_app_aware.py`.
+>
+> Tier 4 (hygiene) is the only tier left open.
 
 
 
