@@ -11,7 +11,7 @@ def render_junit(attempts: list[Attempt], name: str = "lvscan") -> str:
     total = len(attempts)
     failures = sum(1 for a in attempts if a.outcome is Outcome.FAIL)
     errors = sum(1 for a in attempts if a.outcome is Outcome.ERROR)
-    skipped = sum(1 for a in attempts if a.outcome is Outcome.SKIPPED)
+    skipped = sum(1 for a in attempts if a.outcome in (Outcome.SKIPPED, Outcome.INCONCLUSIVE))
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<testsuites name={quoteattr(name)} tests="{total}" failures="{failures}" '
@@ -23,7 +23,7 @@ def render_junit(attempts: list[Attempt], name: str = "lvscan") -> str:
     for vuln, group in sorted(by_vuln.items()):
         gf = sum(1 for a in group if a.outcome is Outcome.FAIL)
         ge = sum(1 for a in group if a.outcome is Outcome.ERROR)
-        gs = sum(1 for a in group if a.outcome is Outcome.SKIPPED)
+        gs = sum(1 for a in group if a.outcome in (Outcome.SKIPPED, Outcome.INCONCLUSIVE))
         lines.append(
             f'  <testsuite name={quoteattr(vuln)} tests="{len(group)}" '
             f'failures="{gf}" errors="{ge}" skipped="{gs}">'
@@ -42,8 +42,9 @@ def render_junit(attempts: list[Attempt], name: str = "lvscan") -> str:
                 lines.append("      </failure>")
             elif a.outcome is Outcome.ERROR:
                 lines.append(f'      <error message={quoteattr((a.error or "")[:200])}></error>')
-            elif a.outcome is Outcome.SKIPPED:
-                lines.append(f'      <skipped message={quoteattr((a.error or "")[:200])}></skipped>')
+            elif a.outcome in (Outcome.SKIPPED, Outcome.INCONCLUSIVE):
+                reason = a.error or ("no confident result" if a.outcome is Outcome.INCONCLUSIVE else "")
+                lines.append(f'      <skipped message={quoteattr(reason[:200])}></skipped>')
             lines.append("    </testcase>")
         lines.append("  </testsuite>")
     lines.append("</testsuites>")

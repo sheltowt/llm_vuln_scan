@@ -36,17 +36,26 @@ class Attack(Plugin):
     kind = "attack"
     tier: Tier = Tier.STATIC
     multi_turn: bool = False
+    requires_attacker: bool = False
+    """True for adaptive attacks that need an attacker model to drive the loop.
+    Without one they are skipped, never run to an ERROR after wasting calls."""
     DEFAULT_PARAMS: dict[str, Any] = {"weight": 1.0}
 
     @property
     def weight(self) -> float:
         return float(self.params.get("weight", 1.0))
 
-    def supports(self, target: Target) -> bool:
-        """Attacks that need capabilities the target lacks are skipped, not faked."""
+    def supports(self, target: Target, ctx: AppContext | None = None) -> tuple[bool, str]:
+        """Return (supported, reason). Attacks that need capabilities the target
+        or context lacks are skipped cleanly, before any target call is spent."""
         if self.multi_turn and not target.capabilities.multi_turn:
-            return False
-        return True
+            return False, f"target does not support multi-turn (needed by {self.name})"
+        if self.requires_attacker and (ctx is None or getattr(ctx, "attacker", None) is None):
+            return False, (
+                f"{self.name} needs an attacker model; set scoring.judge or "
+                "attacks.attacker, or use a scripted/static attack"
+            )
+        return True, ""
 
     async def probe_score(
         self,

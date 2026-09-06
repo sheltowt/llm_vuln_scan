@@ -13,6 +13,8 @@ from ..core.models import Attempt, Score, Seed
 from ..core.plugin import Plugin, build, register
 from .base import Scorer
 
+_COST_ORDER = ["heuristic", "classifier", "llm"]
+
 
 def _as_scorer(spec: Any) -> Scorer:
     if isinstance(spec, Scorer):
@@ -66,12 +68,13 @@ class CompositeScorer(_Wrapper):
                 (r.confidence for r in results), default=0.0
             )
         detail = "; ".join(f"{r.scorer}={r.value:.1f}@{r.confidence:.2f}" for r in results)
-        self.cost = max((r.cost for r in results), key=lambda c: ["heuristic", "classifier", "llm"].index(c.value))
+        cost = max((r.cost for r in results), key=lambda c: _COST_ORDER.index(c.value))
         return self.result(
             1.0 if fired else 0.0,
             confidence=confidence,
             rationale=f"{mode.upper()} of [{detail}]",
             category=next((r.category for r in hits), results[0].category),
+            cost=cost,
         )
 
 
@@ -85,12 +88,12 @@ class InverterScorer(_Wrapper):
         if not self.children:
             return self.result(0.0, confidence=0.0, rationale="invert has no child scorer")
         inner = await self.children[0].score(attempt, seed, ctx)
-        self.cost = inner.cost
         return self.result(
             1.0 - inner.value,
             confidence=inner.confidence,
             rationale=f"inverted {inner.scorer}: {inner.rationale}",
             category=inner.category,
+            cost=inner.cost,
         )
 
 
@@ -115,7 +118,6 @@ class CascadeScorer(_Wrapper):
             return self.result(0.0, confidence=0.0, rationale="cascade has no child scorers")
         cheap = self.children[0]
         first = await cheap.score(attempt, seed, ctx)
-        self.cost = first.cost
         if len(self.children) == 1:
             return first
 
@@ -130,7 +132,6 @@ class CascadeScorer(_Wrapper):
 
         expensive = self.children[1]
         second = await expensive.score(attempt, seed, ctx)
-        self.cost = second.cost
         if second.confidence <= 0.0:
             # The escalation was unavailable (no judge). Keep the cheap answer
             # and its honest low confidence rather than inventing certainty.
@@ -139,12 +140,14 @@ class CascadeScorer(_Wrapper):
                 confidence=first.confidence,
                 rationale=f"{first.rationale} (escalation unavailable: {second.rationale})",
                 category=first.category,
+                cost=first.cost,
             )
         return self.result(
             second.value,
             confidence=second.confidence,
             rationale=f"escalated after {cheap.name} was uncertain ({first.rationale}) -> {second.rationale}",
             category=second.category or first.category,
+            cost=second.cost,
         )
 
 
@@ -158,13 +161,13 @@ class ThresholdScorer(_Wrapper):
         if not self.children:
             return self.result(0.0, confidence=0.0, rationale="threshold has no child scorer")
         inner = await self.children[0].score(attempt, seed, ctx)
-        self.cost = inner.cost
         fired = inner.value >= float(self.params["threshold"])
         return self.result(
             1.0 if fired else 0.0,
             confidence=inner.confidence,
             rationale=f"{inner.rationale} (threshold {self.params['threshold']})",
             category=inner.category,
+            cost=inner.cost,
         )
 
 

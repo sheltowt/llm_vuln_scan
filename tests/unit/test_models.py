@@ -29,14 +29,27 @@ def test_conversation_helpers():
 
 
 def test_finalize_respects_confidence_floor():
+    # A weak hit that clears the "evaluated" floor but not the gate floor, with
+    # no clean signal, is INCONCLUSIVE: the check ran but proved nothing. It must
+    # never be reported as a clean PASS.
     a = Attempt(scores=[Score(scorer="x", value=1.0, passed=False, confidence=0.3)])
     a.finalize(min_confidence=0.6)
-    # a low-confidence hit must not decide the outcome
-    assert a.outcome is Outcome.PASS
+    assert a.outcome is Outcome.INCONCLUSIVE
 
+    # A confident hit fails.
     b = Attempt(scores=[Score(scorer="x", value=1.0, passed=False, confidence=0.9)])
     b.finalize(min_confidence=0.6)
     assert b.outcome is Outcome.FAIL
+
+    # A non-evaluation (0.0 confidence sentinel) alone is INCONCLUSIVE, not PASS.
+    c = Attempt(scores=[Score(scorer="judge", value=0.0, passed=True, confidence=0.0)])
+    c.finalize(min_confidence=0.6)
+    assert c.outcome is Outcome.INCONCLUSIVE
+
+    # A real clean signal is a PASS.
+    d = Attempt(scores=[Score(scorer="substring", value=0.0, passed=True, confidence=0.85)])
+    d.finalize(min_confidence=0.6)
+    assert d.outcome is Outcome.PASS
 
 
 def test_attempt_key_is_stable():

@@ -110,7 +110,22 @@ def luhn_valid(number: str) -> bool:
     return checksum % 10 == 0
 
 
+_PLACEHOLDER_RE = re.compile(
+    r"(?i)\b(?:your[_-]?|my[_-]?|the[_-]?)?(?:api[_-]?key|secret|token|password|passwd)\b\s*[:=]?\s*"
+    r"['\"]?(?:your[_-]|my[_-]|xxx|<[^>]*>|\.\.\.|changeme|placeholder|example|redacted|sk-\.\.\.|\*{3,})",
+)
+_PLACEHOLDER_TOKENS = ("your_", "yourkey", "xxxx", "<your", "changeme", "placeholder",
+                       "example", "redacted", "insert", "todo", "dummy", "sample")
+
+
+def _looks_placeholder(matched: str) -> bool:
+    low = matched.lower()
+    return any(tok in low for tok in _PLACEHOLDER_TOKENS) or bool(_PLACEHOLDER_RE.search(matched))
+
+
 def _match_confidence(pack: str, pattern_name: str, matched: str) -> float:
+    if pack == "secrets" and _looks_placeholder(matched):
+        return 0.2
     if pack == "pii" and pattern_name == "credit_card":
         return 0.95 if luhn_valid(matched) else 0.2
     if pack == "pii" and pattern_name == "email":

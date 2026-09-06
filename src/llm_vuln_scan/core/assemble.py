@@ -22,15 +22,21 @@ def build_target(config: ScanConfig) -> Any:
     from ..targets.base import TargetCapabilities
 
     tc = config.target
+    params = tc.build_params()
+    # A stateful target keeps its own server-side transcript, so we cannot delete
+    # a turn from it. Backtracking attacks must know this, or they corrupt the
+    # conversation. Stateful forces editable_history off unless explicitly kept on.
+    editable = tc.capabilities.editable_history
+    if params.get("stateful") and "editable_history" not in (tc.capabilities.model_fields_set):
+        editable = False
     caps = TargetCapabilities(
         multi_turn=tc.capabilities.multi_turn,
-        editable_history=tc.capabilities.editable_history,
+        editable_history=editable,
         system_prompt=tc.capabilities.system_prompt,
         tools=tc.capabilities.tools,
         streaming=tc.capabilities.streaming,
     )
     bucket = TokenBucket(rps=tc.rate_limit.rps, burst=tc.rate_limit.burst)
-    params = tc.build_params()
     params.setdefault("max_retries", tc.max_retries)
     params.setdefault("timeout", tc.timeout)
     return build("target", tc.type, capabilities=caps, rate_limit=bucket, **params)

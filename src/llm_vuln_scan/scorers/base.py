@@ -33,6 +33,7 @@ class Scorer(Plugin):
         rationale: str = "",
         category: str | None = None,
         threshold: float = 0.5,
+        cost: ScorerCost | None = None,
     ) -> Score:
         value = max(0.0, min(1.0, float(value)))
         return Score(
@@ -42,7 +43,7 @@ class Scorer(Plugin):
             confidence=max(0.0, min(1.0, float(confidence))),
             rationale=rationale,
             category=category or self.category,
-            cost=self.cost,
+            cost=cost or self.cost,
             identifier=self.identifier,
         )
 
