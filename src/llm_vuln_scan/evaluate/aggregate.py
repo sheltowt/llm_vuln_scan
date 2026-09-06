@@ -25,6 +25,7 @@ class VulnResult:
     hits: int = 0
     errors: int = 0
     skipped: int = 0
+    inconclusive: int = 0
     pass_rate: float = 1.0
     fail_rate: float = 0.0
     by_type: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -54,6 +55,7 @@ class Summary:
     hits: int = 0
     errors: int = 0
     skipped: int = 0
+    inconclusive: int = 0
     pass_rate: float = 1.0
     by_severity: dict[str, int] = field(default_factory=dict)
     vulnerabilities: list[VulnResult] = field(default_factory=list)
@@ -61,12 +63,13 @@ class Summary:
     cvss: float | None = None
 
 
-def _counts(attempts: list[Attempt]) -> tuple[int, int, int, int]:
+def _counts(attempts: list[Attempt]) -> tuple[int, int, int, int, int]:
     hits = sum(1 for a in attempts if a.outcome is Outcome.FAIL)
     errors = sum(1 for a in attempts if a.outcome is Outcome.ERROR)
     skipped = sum(1 for a in attempts if a.outcome is Outcome.SKIPPED)
+    inconclusive = sum(1 for a in attempts if a.outcome is Outcome.INCONCLUSIVE)
     scored = sum(1 for a in attempts if a.outcome in (Outcome.PASS, Outcome.FAIL))
-    return hits, errors, skipped, scored
+    return hits, errors, skipped, inconclusive, scored
 
 
 def summarise(attempts: Iterable[Attempt], run_id: str = "",
@@ -77,15 +80,16 @@ def summarise(attempts: Iterable[Attempt], run_id: str = "",
     for attempt in attempts:
         by_vuln.setdefault(attempt.vulnerability, []).append(attempt)
 
-    all_hits, all_errors, all_skipped, all_scored = _counts(attempts)
+    all_hits, all_errors, all_skipped, all_inconclusive, all_scored = _counts(attempts)
     summary.hits = all_hits
     summary.errors = all_errors
     summary.skipped = all_skipped
+    summary.inconclusive = all_inconclusive
     summary.scored = all_scored
     summary.pass_rate = 1.0 - (all_hits / all_scored) if all_scored else 1.0
 
     for name, group in sorted(by_vuln.items()):
-        hits, errors, skipped, scored = _counts(group)
+        hits, errors, skipped, inconclusive, scored = _counts(group)
         severity = group[0].severity.value
         result = VulnResult(
             vulnerability=name,
@@ -95,6 +99,7 @@ def summarise(attempts: Iterable[Attempt], run_id: str = "",
             hits=hits,
             errors=errors,
             skipped=skipped,
+            inconclusive=inconclusive,
             pass_rate=1.0 - (hits / scored) if scored else 1.0,
             fail_rate=(hits / scored) if scored else 0.0,
         )

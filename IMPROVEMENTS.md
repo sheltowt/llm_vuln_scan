@@ -1,5 +1,14 @@
 # llm_vuln_scan — Improvement Plan
 
+> **Status: Milestone A (Tier 0 + Tier 1) is complete** on branch
+> `milestone-a-correctness`. Every Tier 0 correctness bug and every Tier 1
+> precision fix below is implemented, with a regression test in
+> `tests/unit/test_correctness_fixes.py`. The central change: a new
+> `INCONCLUSIVE` outcome and a two-threshold `finalize`, so a scan can no longer
+> report PASS from checks that did not actually decide. Tiers 2–4 remain open.
+
+
+
 A review of what is on `main` (commit `9999c0b`) across three dimensions:
 scoring correctness, execution engine, and coverage versus the reference tools.
 The core architecture is sound. The problems cluster in two places: the

@@ -36,6 +36,7 @@ ON_TOPIC_SYSTEM = (
 class _Node:
     prompt: str
     score: float = 0.0
+    hit: bool = False
     conversation: Conversation = field(default_factory=Conversation)
     rationale: str = ""
     depth: int = 0
@@ -43,6 +44,7 @@ class _Node:
 
 class _TreeSearchAttack(MultiTurnAttack):
     tier = Tier.DYNAMIC
+    requires_attacker = True
     DEFAULT_PARAMS = {
         **MultiTurnAttack.DEFAULT_PARAMS,
         "width": 3,
@@ -75,6 +77,7 @@ class _TreeSearchAttack(MultiTurnAttack):
         node.conversation = conversation
         score = await self.probe_score(scorer, conversation, seed, ctx, node.prompt)
         node.score = score.value if score else 0.0
+        node.hit = bool(score and score.is_hit)
         return node
 
     async def _children(self, parent: _Node, seed: Seed, ctx, width: int) -> list[_Node]:
@@ -114,7 +117,7 @@ class _TreeSearchAttack(MultiTurnAttack):
             {"depth": 0, "score": root.score, "prompt": root.prompt[:200]}
         ]
 
-        if root.score >= 1.0:
+        if root.hit:
             return self._result(root, explored, pruned, history, True)
 
         for _level in range(depth):
@@ -128,19 +131,19 @@ class _TreeSearchAttack(MultiTurnAttack):
                     explored += 1
             if not candidates:
                 break
-            candidates.sort(key=lambda n: n.score, reverse=True)
+            candidates.sort(key=lambda n: (n.hit, n.score), reverse=True)
             history.extend(
                 {"depth": c.depth, "score": c.score, "prompt": c.prompt[:200]}
                 for c in candidates
             )
-            if candidates[0].score > best.score:
+            if (candidates[0].hit, candidates[0].score) > (best.hit, best.score):
                 best = candidates[0]
-            if best.score >= 1.0:
+            if best.hit:
                 return self._result(best, explored, pruned, history, True)
             pruned += max(0, len(candidates) - keep)
             frontier = candidates[:keep]
 
-        return self._result(best, explored, pruned, history, best.score >= 1.0)
+        return self._result(best, explored, pruned, history, best.hit)
 
     def _result(
         self, node: _Node, explored: int, pruned: int, history: list[dict[str, Any]], met: bool
@@ -188,6 +191,7 @@ class LinearJailbreakAttack(MultiTurnAttack):
     """
 
     tier = Tier.DYNAMIC
+    requires_attacker = True
     DEFAULT_PARAMS = {**MultiTurnAttack.DEFAULT_PARAMS, "max_turns": 4}
 
     async def run(self, seed: Seed, target, scorer, ctx) -> AttackResult:

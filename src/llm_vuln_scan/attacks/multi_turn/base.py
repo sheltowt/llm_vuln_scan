@@ -27,9 +27,9 @@ class AttackerUnavailable(RuntimeError):
 async def ask_attacker(ctx: Any, system: str, user: str) -> dict[str, Any]:
     """Query the attacker model, returning parsed JSON.
 
-    Adaptive attacks require an attacker model. Rather than silently degrading
-    into a fixed script and reporting the result as if it were adaptive, we fail
-    loudly and let the runner mark the attack skipped.
+    Adaptive attacks require an attacker model. The runner gates them out via
+    Attack.supports() before any target call is spent (requires_attacker), so
+    this is a backstop; if reached it fails loudly rather than faking a result.
     """
 
     attacker = getattr(ctx, "attacker", None)

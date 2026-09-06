@@ -372,12 +372,21 @@ def _print_summary(summary, result, show_z: bool) -> None:
         )
         table.add_row(*row, style=style)
     console.print(table)
+    inconclusive_note = (
+        f"  ·  [yellow]{summary.inconclusive} inconclusive[/yellow]"
+        if summary.inconclusive else ""
+    )
     console.print(
         f"pass rate [bold]{summary.pass_rate:.1%}[/bold]  ·  {summary.hits} hits  ·  "
-        f"{result.errors} errors  ·  {result.skipped} skipped  ·  "
+        f"{result.errors} errors  ·  {result.skipped} skipped{inconclusive_note}  ·  "
         f"target calls {result.target_calls}  ·  judge calls {result.judge_calls}"
         + (f"  ·  exposure {summary.cvss}/10" if summary.cvss is not None else "")
     )
+    if summary.inconclusive:
+        console.print(
+            "[yellow]note:[/yellow] inconclusive attempts were scored but no result "
+            "was confident enough to decide; they are NOT counted as passes."
+        )
 
 
 def main() -> None:
