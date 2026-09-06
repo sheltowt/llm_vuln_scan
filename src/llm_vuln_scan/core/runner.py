@@ -144,18 +144,21 @@ class Runner:
         total = len(plan.items) * plan.generations
         result = RunResult(run_id=self.run_id, store_dir=str(self.store.dir) if self.store else "")
 
-        semaphore = asyncio.Semaphore(max(1, self.config.run.concurrency))
+        concurrency = max(1, self.config.run.concurrency)
         done = 0
         lock = asyncio.Lock()
 
-        async def worker(item: PlanItem, generation: int) -> None:
+        # A bounded worker pool draining one shared queue, rather than one task
+        # per work item. A committed suite can hold tens of thousands of items;
+        # materializing a task apiece wastes memory for no added parallelism,
+        # since the pool size already caps how many run at once.
+        queue: asyncio.Queue[tuple[PlanItem, int]] = asyncio.Queue()
+        for gen in range(plan.generations):
+            for item in plan.items:
+                queue.put_nowait((item, gen))
+
+        async def record(attempt: Attempt) -> None:
             nonlocal done
-            if self._stop:
-                return
-            async with semaphore:
-                if self._stop:
-                    return
-                attempt = await self._run_item(item, generation)
             async with lock:
                 done += 1
                 result.attempts.append(attempt)
@@ -175,19 +178,31 @@ class Runner:
                     self._stop = True
                     result.stopped_early = True
 
-        tasks = [
-            asyncio.create_task(worker(item, gen))
-            for gen in range(plan.generations)
-            for item in plan.items
-        ]
-        if tasks:
-            await asyncio.gather(*tasks)
+        async def worker() -> None:
+            while not self._stop:
+                try:
+                    item, generation = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    return
+                try:
+                    attempt = await self._run_item(item, generation)
+                    await record(attempt)
+                finally:
+                    queue.task_done()
+
+        workers = [asyncio.create_task(worker()) for _ in range(min(concurrency, max(1, total)))]
+        if workers:
+            await asyncio.gather(*workers)
 
         result.target_calls = getattr(self.target, "total_calls", 0)
         result.tokens = max(result.tokens, getattr(self.target, "total_tokens", 0))
         if self.ctx.judge is not None:
             result.judge_calls = getattr(self.ctx.judge, "calls", 0)
-        result.attempts.sort(key=lambda a: (a.vulnerability, a.vuln_type, a.attack, a.seed_id))
+        # Include generation so a multi-generation run has a stable, reproducible
+        # order instead of falling back to (nondeterministic) completion order.
+        result.attempts.sort(
+            key=lambda a: (a.vulnerability, a.vuln_type, a.attack, a.seed_id, a.generation)
+        )
         return result
 
 

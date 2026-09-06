@@ -80,7 +80,11 @@ class Target(Plugin):
             except Exception as exc:  # noqa: BLE001 - adapters raise anything
                 last_error = exc
             if attempt_no < int(self.params["max_retries"]):
-                await asyncio.sleep(float(self.params["retry_backoff"]) ** attempt_no)
+                # Honour a server-provided Retry-After over the exponential
+                # backoff when it is present and longer.
+                backoff = float(self.params["retry_backoff"]) ** attempt_no
+                retry_after = getattr(last_error, "retry_after", None)
+                await asyncio.sleep(max(backoff, retry_after) if retry_after else backoff)
         raise TargetError(str(last_error) or "target call failed") from last_error
 
     async def aclose(self) -> None:

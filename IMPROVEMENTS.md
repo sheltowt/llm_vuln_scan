@@ -1,11 +1,18 @@
 # llm_vuln_scan — Improvement Plan
 
-> **Status: Milestone A (Tier 0 + Tier 1) is complete** on branch
-> `milestone-a-correctness`. Every Tier 0 correctness bug and every Tier 1
-> precision fix below is implemented, with a regression test in
-> `tests/unit/test_correctness_fixes.py`. The central change: a new
-> `INCONCLUSIVE` outcome and a two-threshold `finalize`, so a scan can no longer
-> report PASS from checks that did not actually decide. Tiers 2–4 remain open.
+> **Status: Milestones A and B are complete** (A merged as PR #1).
+> - **Milestone A (Tier 0 + Tier 1)**: every correctness and precision fix, with
+>   regression tests in `tests/unit/test_correctness_fixes.py`. The central change
+>   was a new `INCONCLUSIVE` outcome and a two-threshold `finalize`, so a scan can
+>   no longer report PASS from checks that did not actually decide.
+> - **Milestone B (Tier 2)**: the rate limiter no longer serializes concurrency
+>   (reserve under the lock, sleep outside), the runner drains a bounded worker
+>   pool instead of one task per item, multi-generation ordering is deterministic,
+>   the HTTP target distinguishes a null field from a missing one and honours
+>   `Retry-After`, and cache writes use unique temp files. Tests in
+>   `tests/unit/test_engine.py`.
+>
+> Tiers 3–4 remain open; Tier 3 (the app-aware generation pipeline) is next.
 
 
 

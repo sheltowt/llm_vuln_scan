@@ -7,6 +7,8 @@ suite against an unchanged target costs nothing and stays deterministic.
 from __future__ import annotations
 
 import json
+import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +51,12 @@ class ResponseCache:
             return
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(value, default=str))
-        tmp.replace(path)
+        # A unique temp name per write, so two concurrent writers of the same key
+        # (e.g. two identical judge calls in flight) cannot clobber each other's
+        # temp file mid-write. The final rename stays atomic.
+        tmp = path.with_suffix(f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+        try:
+            tmp.write_text(json.dumps(value, default=str))
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
