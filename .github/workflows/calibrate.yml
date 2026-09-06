@@ -16,6 +16,10 @@ on:
 jobs:
   refresh-bag:
     runs-on: ubuntu-latest
+    # The secret is hoisted to a job-level env var: the `secrets` context is not
+    # allowed inside an `if` conditional, so the steps gate on `env` instead.
+    env:
+      LVSCAN_JUDGE_API_KEY: ${{ secrets.LVSCAN_JUDGE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,9 +27,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e .
       - name: Scan each reference model
-        if: ${{ secrets.LVSCAN_JUDGE_API_KEY != '' }}
-        env:
-          LVSCAN_JUDGE_API_KEY: ${{ secrets.LVSCAN_JUDGE_API_KEY }}
+        if: env.LVSCAN_JUDGE_API_KEY != ''
         run: |
           # Replace with your reference model configs. Each run tags itself so
           # `lvscan calibrate` can gather them by name.
@@ -36,7 +38,7 @@ jobs:
             --output-dir bag_runs \
             --out src/llm_vuln_scan/data/calibration/bag.json
       - name: Open a PR with the refreshed bag
-        if: ${{ secrets.LVSCAN_JUDGE_API_KEY != '' }}
+        if: env.LVSCAN_JUDGE_API_KEY != ''
         uses: peter-evans/create-pull-request@v6
         with:
           branch: calibration-refresh
