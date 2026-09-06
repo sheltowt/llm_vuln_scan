@@ -1,5 +1,7 @@
-# Example: gate merges on new LLM vulnerabilities.
-# Copy into a downstream repo that has an lvscan.yaml and a committed lvscan.suite.yaml.
+# TEMPLATE — copy this into .github/workflows/ of a downstream repo that has an
+# lvscan.yaml and a committed lvscan.suite.yaml. It is kept here (not under
+# .github/workflows/) so it does not run in this repo, where the package is not
+# yet on PyPI and there is no root lvscan.yaml.
 name: llm-vuln-scan
 on:
   pull_request:
