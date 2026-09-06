@@ -45,8 +45,25 @@ def _stringify(value: Any) -> str:
     return json.dumps(value, default=str)
 
 
+MISSING = object()
+"""Sentinel returned by json_path when a path does not resolve, so a genuinely
+null value (the app answered with null) is distinguishable from a wrong path."""
+
+
+def _retry_after(response: httpx.Response) -> float | None:
+    """Parse a Retry-After header (delta-seconds; HTTP-date not supported)."""
+    raw = response.headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw.strip()))
+    except ValueError:
+        return None
+
+
 def json_path(data: Any, path: str) -> Any:
-    """Minimal JSONPath: ``$.a.b[0].c``. Enough for response extraction."""
+    """Minimal JSONPath: ``$.a.b[0].c``. Returns ``MISSING`` if the path does
+    not resolve; returns ``None`` only when the resolved value is actually null."""
 
     if not path:
         return data
@@ -56,15 +73,13 @@ def json_path(data: Any, path: str) -> Any:
             continue
         name, *indexes = re.split(r"\[(\d+)\]", token)
         if name:
-            if not isinstance(cursor, dict):
-                return None
-            cursor = cursor.get(name)
+            if not isinstance(cursor, dict) or name not in cursor:
+                return MISSING
+            cursor = cursor[name]
         for idx in [i for i in indexes if i.isdigit()]:
             if not isinstance(cursor, list) or int(idx) >= len(cursor):
-                return None
+                return MISSING
             cursor = cursor[int(idx)]
-        if cursor is None:
-            return None
     return cursor
 
 
@@ -142,7 +157,9 @@ class HttpTarget(Target):
 
         response = await self._client.request(method, str(self.params["url"]), **request_kw)
         if response.status_code in set(self.params.get("rate_limit_codes") or []):
-            raise TargetError(f"rate limited: HTTP {response.status_code}")
+            err = TargetError(f"rate limited: HTTP {response.status_code}")
+            err.retry_after = _retry_after(response)  # type: ignore[attr-defined]
+            raise err
         if response.status_code >= 400:
             err = TargetError(f"HTTP {response.status_code}: {response.text[:300]}")
             err.retryable = response.status_code >= 500  # type: ignore[attr-defined]
@@ -153,18 +170,21 @@ class HttpTarget(Target):
         except ValueError:
             payload = response.text
 
-        content = payload
+        content: Any = payload
         if isinstance(payload, (dict, list)) and self.params.get("response"):
             content = json_path(payload, str(self.params["response"]))
-        if content is None:
+        if content is MISSING:
             raise TargetError(
                 f"response path {self.params['response']!r} not found in {str(payload)[:200]}"
             )
+        # A resolved-but-null field is a valid empty response, not a config error.
+        if content is None:
+            content = ""
 
         session_id = conversation.session_id
         if self.params.get("session_parser") and isinstance(payload, (dict, list)):
             parsed = json_path(payload, str(self.params["session_parser"]))
-            if parsed:
+            if parsed not in (None, MISSING):
                 session_id = str(parsed)
         elif self.params.get("session_header"):
             session_id = response.headers.get(str(self.params["session_header"]), session_id)
@@ -173,7 +193,8 @@ class HttpTarget(Target):
 
         ended = False
         if self.params.get("conversation_ended") and isinstance(payload, (dict, list)):
-            ended = bool(json_path(payload, str(self.params["conversation_ended"])))
+            flag = json_path(payload, str(self.params["conversation_ended"]))
+            ended = bool(flag) and flag is not MISSING
 
         return Message.assistant(
             content if isinstance(content, str) else json.dumps(content, default=str),
@@ -181,7 +202,7 @@ class HttpTarget(Target):
                 "status": response.status_code,
                 "session_id": session_id,
                 "conversation_ended": ended,
-                "raw": payload if isinstance(payload, dict) else None,
+                "raw": payload if isinstance(payload, (dict, list)) else None,
             },
         )
 
