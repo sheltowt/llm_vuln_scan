@@ -1,6 +1,7 @@
 """Scorers: how a response is judged."""
 
 from .base import Scorer, build_scorer
+from .classifier import HFClassifierScorer
 from .composite import (
     CascadeScorer,
     CompositeScorer,
@@ -23,6 +24,7 @@ from .refusal import ComplianceScorer, OverRefusalScorer, RefusalScorer, analyse
 
 __all__ = [
     "CanaryScorer",
+    "HFClassifierScorer",
     "CascadeScorer",
     "CodeBlockScorer",
     "ComplianceScorer",

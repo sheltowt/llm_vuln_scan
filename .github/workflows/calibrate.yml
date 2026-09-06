@@ -1,0 +1,45 @@
+# Quarterly calibration-bag refresh (and on demand).
+#
+# The z-scores in reports compare a target's fail rate against a "bag" of
+# reference models. That bag decays as models change, so this rebuilds it by
+# scanning a set of reference endpoints and running `lvscan calibrate`.
+#
+# It needs reference model endpoints and keys, provided as repository secrets,
+# so it is a scheduled/manual workflow rather than part of PR CI. Fill in the
+# reference model list for your own deployment.
+name: calibrate
+on:
+  schedule:
+    - cron: "0 6 1 1,4,7,10 *" # 06:00 UTC on the 1st of Jan/Apr/Jul/Oct
+  workflow_dispatch: {}
+
+jobs:
+  refresh-bag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Scan each reference model
+        if: ${{ secrets.LVSCAN_JUDGE_API_KEY != '' }}
+        env:
+          LVSCAN_JUDGE_API_KEY: ${{ secrets.LVSCAN_JUDGE_API_KEY }}
+        run: |
+          # Replace with your reference model configs. Each run tags itself so
+          # `lvscan calibrate` can gather them by name.
+          for model in ref-a ref-b ref-c; do
+            lvscan run -c calibration/${model}.yaml --output-dir bag_runs || true
+          done
+          lvscan calibrate $(ls bag_runs) \
+            --output-dir bag_runs \
+            --out src/llm_vuln_scan/data/calibration/bag.json
+      - name: Open a PR with the refreshed bag
+        if: ${{ secrets.LVSCAN_JUDGE_API_KEY != '' }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: calibration-refresh
+          title: "Refresh calibration bag"
+          commit-message: "Refresh calibration bag from reference-model runs"
+          body: "Automated quarterly calibration refresh."
