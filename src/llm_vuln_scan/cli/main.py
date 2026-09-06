@@ -98,6 +98,7 @@ def generate(
     overrides = {"run": {"tier": tier}} if tier else {}
     cfg = _load_config(config, overrides)
     _, ctx = assemble(cfg)
+    asyncio.run(_prepare(ctx, cfg))
     plan = generate_suite(cfg, ctx)
     save_suite(plan, cfg, out)
     console.print(
@@ -292,6 +293,7 @@ def plan(
     overrides = {"run": {"tier": tier}} if tier else {}
     cfg = _load_config(config, overrides)
     _, ctx = assemble(cfg)
+    asyncio.run(_prepare(ctx, cfg))
     p = build_plan(cfg, ctx)
     table = Table(title=f"plan: {len(p.items)} items, {len(p.seeds)} seeds, tier={cfg.run.tier.value}")
     table.add_column("vulnerability")
@@ -335,6 +337,12 @@ def _new_run_id() -> str:
     from ..core.models import new_id
 
     return datetime.now().strftime("%Y%m%d-%H%M%S-") + new_id()[:6]
+
+
+async def _prepare(ctx, cfg) -> None:
+    from ..core.generate import prepare
+
+    await prepare(ctx, cfg)
 
 
 async def _aclose(target) -> None:
