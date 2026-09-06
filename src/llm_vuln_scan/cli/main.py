@@ -165,10 +165,21 @@ def run(
             console.print(f"[red]HIT[/red] [{done}/{total}] {attempt.vulnerability}/{attempt.vuln_type} "
                           f"via {attempt.attack}")
 
+    async def _execute():
+        # Close the target inside the SAME event loop that ran the scan. An
+        # async client (httpx) created during the run cannot be closed from a
+        # second asyncio.run(): its loop is already gone ("event loop is closed").
+        try:
+            return await runner.run(progress=progress)
+        finally:
+            await _aclose(target)
+            # The judge/attacker is a separate target with its own client.
+            if ctx.judge is not None:
+                await _aclose(getattr(ctx.judge, "target", None))
+
     try:
-        result = asyncio.run(runner.run(progress=progress))
+        result = asyncio.run(_execute())
     finally:
-        asyncio.run(_aclose(target))
         store.finish_run()
 
     bag = load_bag() if show_z else None
@@ -346,8 +357,11 @@ async def _prepare(ctx, cfg) -> None:
 
 
 async def _aclose(target) -> None:
-    if hasattr(target, "aclose"):
-        await target.aclose()
+    if target is not None and hasattr(target, "aclose"):
+        try:
+            await target.aclose()
+        except Exception:  # noqa: BLE001 - cleanup must never mask the result
+            pass
 
 
 def _summary_dict(summary) -> dict:
