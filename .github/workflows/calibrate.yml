@@ -39,7 +39,7 @@ jobs:
             --out src/llm_vuln_scan/data/calibration/bag.json
       - name: Open a PR with the refreshed bag
         if: env.LVSCAN_JUDGE_API_KEY != ''
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: calibration-refresh
           title: "Refresh calibration bag"
