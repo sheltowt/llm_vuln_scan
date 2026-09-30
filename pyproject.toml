@@ -30,7 +30,14 @@ dependencies = [
 
 [project.optional-dependencies]
 classifiers = ["transformers>=4.40", "torch>=2.2"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6", "respx>=0.21"]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "pytest-cov>=5.0",
+  "ruff>=0.6",
+  "respx>=0.21",
+  "jsonschema>=4.0",
+]
 all = ["llm-vuln-scan[classifiers,dev]"]
 
 [project.urls]
@@ -51,6 +58,16 @@ artifacts = ["src/llm_vuln_scan/data/**/*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["llm_vuln_scan"]
+branch = true
+
+[tool.coverage.report]
+# Raise this as coverage improves; CI fails if coverage drops below it.
+fail_under = 74
+show_missing = true
+skip_covered = true
 
 [tool.ruff]
 line-length = 100

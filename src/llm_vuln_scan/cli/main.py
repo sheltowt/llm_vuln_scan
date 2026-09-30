@@ -181,6 +181,8 @@ def run(
         result = asyncio.run(_execute())
     finally:
         store.finish_run()
+        # Later writes (summary, report) only touch files under store.dir.
+        store.close()
 
     bag = load_bag() if show_z else None
     summary = summarise(result.attempts, run_id, calibration=bag)

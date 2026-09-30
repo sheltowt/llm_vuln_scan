@@ -26,7 +26,8 @@ judge). Everything else is internal. A scan produces immutable `Attempt` records
   `tests/fixtures/vulnerable_app.py` + an assertion in the integration tests.
 
 ## Development
-- `pip install -e ".[dev]"` then `pytest -q` and `ruff check src tests`.
+- `pip install -e ".[dev]"` then `pytest -q --cov` and `ruff check src tests scripts`. CI fails
+  if coverage drops below `fail_under` in `pyproject.toml`; raise it as coverage grows.
 - The bundled `tests/fixtures/vulnerable_app.py` is a deterministic, no-LLM app
   with planted weaknesses; the integration tests assert each is found. Run the
   quickstart with `lvscan run -c examples/quickstart/lvscan.yaml`.
