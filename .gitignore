@@ -10,3 +10,5 @@ build/
 .lvscan/
 lvscan_runs/
 .DS_Store
+.coverage
+coverage.xml
