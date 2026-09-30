@@ -22,7 +22,7 @@ jobs:
       LVSCAN_JUDGE_API_KEY: ${{ secrets.LVSCAN_JUDGE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -e .
